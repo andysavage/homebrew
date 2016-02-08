@@ -1,17 +1,21 @@
-require 'formula'
-
 class Libvirt < Formula
-  homepage 'http://www.libvirt.org'
-  url 'http://libvirt.org/sources/libvirt-1.1.2.tar.gz'
-  sha256 '16648af54d3e162f5cc5445d970ec29a0bd55b1dbcb568a05533c4c2f25965e3'
+  desc "C virtualization API"
+  homepage "https://www.libvirt.org"
+  url "https://libvirt.org/sources/libvirt-1.3.1.tar.gz"
+  sha256 "a5d43fbed34d31eeffc641d2ac9b6026a57bf1a4fa74d0fa19a9891d9ec2c21a"
 
-  option 'without-libvirtd', 'Build only the virsh client and development libraries'
+  bottle do
+    sha256 "6cc2a03435eb617b2ed9edf7951bfa85f83673a75ad3b7b9a8f25479c1c6fb34" => :el_capitan
+    sha256 "225c909eed18669d808d8252bd4d8b384ed108b313cb09aa565b55d3349639e7" => :yosemite
+    sha256 "2d4da146e0624952c53f959acdde11b0f1f63bd144106bc24cb9dfeba1a4480b" => :mavericks
+  end
 
-  depends_on 'pkg-config' => :build
-  depends_on 'gnutls'
-  depends_on 'libgcrypt'
-  depends_on 'yajl'
-  depends_on :python => :recommended
+  option "without-libvirtd", "Build only the virsh client and development libraries"
+
+  depends_on "pkg-config" => :build
+  depends_on "gnutls"
+  depends_on "libgcrypt"
+  depends_on "yajl"
 
   if MacOS.version <= :leopard
     # Definitely needed on Leopard, but not on Snow Leopard.
@@ -38,14 +42,13 @@ class Libvirt < Formula
             "--with-yajl",
             "--without-qemu"]
 
-    args << "--without-libvirtd" if build.without? 'libvirtd'
-    args << "--without-python" if build.without? 'python'
+    args << "--without-libvirtd" if build.without? "libvirtd"
 
     system "./configure", *args
 
     # Compilation of docs doesn't get done if we jump straight to "make install"
     system "make"
-    system "make install"
+    system "make", "install"
 
     # Update the SASL config file with the Homebrew prefix
     inreplace "#{etc}/sasl2/libvirt.conf" do |s|
@@ -54,19 +57,11 @@ class Libvirt < Formula
 
     # If the libvirt daemon is built, update its config file to reflect
     # the Homebrew prefix
-    unless build.include? 'without-libvirtd'
+    if build.with? "libvirtd"
       inreplace "#{etc}/libvirt/libvirtd.conf" do |s|
         s.gsub! "/etc/", "#{HOMEBREW_PREFIX}/etc/"
         s.gsub! "/var/", "#{HOMEBREW_PREFIX}/var/"
       end
-    end
-  end
-
-  test do
-    python do
-      # Testing to import the mod because that is a .so file where linking
-      # can break.
-      system python, '-c', "import libvirtmod"
     end
   end
 end

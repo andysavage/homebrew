@@ -1,19 +1,29 @@
-require 'formula'
+class Winetricks < Formula
+  desc "Download and install various runtime libraries"
+  homepage "https://github.com/Winetricks/winetricks"
+  url "https://github.com/Winetricks/winetricks/archive/20151116.tar.gz"
+  sha256 "a8947974f47ec575e62717abe591a737d7214557e7ece4c39de079599ba4bf70"
+  head "https://github.com/Winetricks/winetricks.git"
 
-class Winetricks < ScriptFileFormula
-  homepage 'http://code.google.com/p/winetricks/'
-  url 'http://winetricks.googlecode.com/svn-history/r1034/trunk/src/winetricks', :using => :curl
-  # since the version stated in the field is seldom updated, we append the revision number
-  version '20130707-r1034'
-  sha256 '00eb1a454815fa31061f762a819e2c4ae95b14c6507a9fff5485bc9f07719da5'
+  bottle :unneeded
 
-  head 'http://winetricks.googlecode.com/svn/trunk/src/winetricks', :using => :curl
+  depends_on "cabextract"
+  depends_on "p7zip"
+  depends_on "unrar"
+  depends_on "wine"
 
-  depends_on 'cabextract'
+  def install
+    bin.install "src/winetricks"
+    man1.install "src/winetricks.1"
+  end
 
   def caveats; <<-EOS.undent
     winetricks is a set of utilities for wine, which is installed separately:
       brew install wine
     EOS
+  end
+
+  test do
+    system "#{bin}/winetricks", "--version"
   end
 end

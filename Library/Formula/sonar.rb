@@ -1,23 +1,26 @@
-require 'formula'
-
 class Sonar < Formula
-  homepage 'http://www.sonarsource.org'
-  url 'http://dist.sonar.codehaus.org/sonar-3.7.zip'
-  sha1 '60d49ffe55d3f1e8ab7cfa012ac72ce554a9b259'
+  desc "Manage code quality"
+  homepage "http://www.sonarqube.org/"
+  url "https://sonarsource.bintray.com/Distribution/sonarqube/sonarqube-5.3.zip"
+  sha256 "4e61ee3a01d5e447bcd64357df77e0377325c4a2bb5ceb2cdeb5a5d193443ba5"
+
+  depends_on :java => "1.7+"
+
+  bottle :unneeded
 
   def install
     # Delete native bin directories for other systems
-    rm_rf Dir['bin/{aix,hpux,linux,solaris,windows}-*']
+    rm_rf Dir["bin/{aix,hpux,linux,solaris,windows}-*"]
 
     if MacOS.prefer_64_bit?
-      rm_rf Dir['bin/macosx-universal-32']
+      rm_rf "bin/macosx-universal-32"
     else
-      rm_rf Dir['bin/macosx-universal-64']
+      rm_rf "bin/macosx-universal-64"
     end
 
     # Delete Windows files
-    rm_f Dir['war/*.bat']
-    libexec.install Dir['*']
+    rm_f Dir["war/*.bat"]
+    libexec.install Dir["*"]
 
     if MacOS.prefer_64_bit?
       bin.install_symlink "#{libexec}/bin/macosx-universal-64/sonar.sh" => "sonar"
@@ -26,7 +29,7 @@ class Sonar < Formula
     end
   end
 
-  plist_options :manual => "#{HOMEBREW_PREFIX}/opt/sonar/bin/sonar console"
+  plist_options :manual => "sonar console"
 
   def plist; <<-EOS.undent
     <?xml version="1.0" encoding="UTF-8"?>
@@ -37,7 +40,7 @@ class Sonar < Formula
         <string>#{plist_name}</string>
         <key>ProgramArguments</key>
         <array>
-        <string>#{opt_prefix}/bin/sonar</string>
+        <string>#{opt_bin}/sonar</string>
         <string>start</string>
         </array>
         <key>RunAtLoad</key>
@@ -45,5 +48,9 @@ class Sonar < Formula
     </dict>
     </plist>
     EOS
+  end
+
+  test do
+    assert_match /SonarQube/, shell_output("#{bin}/sonar status", 1)
   end
 end

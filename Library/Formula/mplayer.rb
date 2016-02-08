@@ -1,87 +1,76 @@
-require 'formula'
-
 class Mplayer < Formula
-  homepage 'http://www.mplayerhq.hu/'
-  url 'http://www.mplayerhq.hu/MPlayer/releases/MPlayer-1.1.tar.xz'
-  sha1 '913a4bbeab7cbb515c2f43ad39bc83071b2efd75'
+  desc "UNIX movie player"
+  homepage "https://www.mplayerhq.hu/"
+  url "https://www.mplayerhq.hu/MPlayer/releases/MPlayer-1.2.1.tar.xz"
+  sha256 "831baf097d899bdfcdad0cb80f33cc8dff77fa52cb306bee5dee6843b5c52b5f"
 
-  head 'svn://svn.mplayerhq.hu/mplayer/trunk', :using => StrictSubversionDownloadStrategy
-
-  option 'with-x', 'Build with X11 support'
-  option 'without-osd', 'Build without OSD'
-
-  depends_on 'yasm' => :build
-  depends_on 'xz' => :build
-  depends_on 'libcaca' => :optional
-  depends_on :x11 if build.include? 'with-x'
-
-  unless build.include? 'without-osd' or build.include? 'with-x'
-    # These are required for the OSD. We can get them from X11, or we can
-    # build our own.
-    depends_on :fontconfig
-    depends_on :freetype
+  bottle do
+    sha256 "aaece9087e83b8ead9644510288513f27978d920f9917ef1b013b0c566b24cb0" => :el_capitan
+    sha256 "c21fe0781fb99f2ec0f304d8dbc9582dba27af6b60d266cc0917d6c0ccf906e2" => :yosemite
+    sha256 "dda6a502ded3e942191d24252677f118becbf34799326e201e6151247649e5c1" => :mavericks
   end
 
-  fails_with :clang do
-    build 211
-    cause 'Inline asm errors during compile on 32bit Snow Leopard.'
-  end unless MacOS.prefer_64_bit?
+  head do
+    url "svn://svn.mplayerhq.hu/mplayer/trunk"
+    depends_on "subversion" => :build if MacOS.version <= :leopard
 
-  def patches
     # When building SVN, configure prompts the user to pull FFmpeg from git.
     # Don't do that.
-    DATA if build.head?
+    patch :DATA
   end
 
+  depends_on "yasm" => :build
+  depends_on "libcaca" => :optional
+
+  unless MacOS.prefer_64_bit?
+    fails_with :clang do
+      build 211
+      cause "Inline asm errors during compile on 32bit Snow Leopard."
+    end
+  end
+
+  # ld fails with: Unknown instruction for architecture x86_64
+  fails_with :llvm
+
   def install
-    # (A) Do not use pipes, per bug report and MacPorts
-    # * https://github.com/mxcl/homebrew/issues/622
-    # * http://trac.macports.org/browser/trunk/dports/multimedia/mplayer-devel/Portfile
-    # (B) Any kind of optimisation breaks the build
-    # (C) It turns out that ENV.O1 fixes link errors with llvm.
-    ENV['CFLAGS'] = ''
-    ENV['CXXFLAGS'] = ''
+    # It turns out that ENV.O1 fixes link errors with llvm.
     ENV.O1 if ENV.compiler == :llvm
 
     # we disable cdparanoia because homebrew's version is hacked to work on OS X
-    # and mplayer doesn't expect the hacks we apply. So it chokes.
+    # and mplayer doesn't expect the hacks we apply. So it chokes. Only relevant
+    # if you have cdparanoia installed.
     # Specify our compiler to stop ffmpeg from defaulting to gcc.
-    # Disable openjpeg because it defines int main(), which hides mplayer's main().
-    # This issue was reported upstream against openjpeg 1.5.0:
-    # http://code.google.com/p/openjpeg/issues/detail?id=152
     args = %W[
-      --prefix=#{prefix}
       --cc=#{ENV.cc}
       --host-cc=#{ENV.cc}
       --disable-cdparanoia
-      --disable-libopenjpeg
+      --prefix=#{prefix}
+      --disable-x11
     ]
 
-    args << "--enable-menu" unless build.include? 'without-osd'
-    args << "--disable-x11" unless build.include? 'with-x'
-    args << "--enable-caca" if build.with? 'libcaca'
+    args << "--enable-caca" if build.with? "libcaca"
 
     system "./configure", *args
     system "make"
-    system "make install"
+    system "make", "install"
   end
 
-  def test
+  test do
     system "#{bin}/mplayer", "-ao", "null", "/System/Library/Sounds/Glass.aiff"
   end
 end
 
 __END__
 diff --git a/configure b/configure
-index a1fba5f..5deaa80 100755
+index addc461..3b871aa 100755
 --- a/configure
 +++ b/configure
-@@ -49,8 +49,6 @@ if test -e ffmpeg/mp_auto_pull ; then
+@@ -1517,8 +1517,6 @@ if test -e ffmpeg/mp_auto_pull ; then
  fi
  
- if ! test -e ffmpeg ; then
+ if test "$ffmpeg_a" != "no" && ! test -e ffmpeg ; then
 -    echo "No FFmpeg checkout, press enter to download one with git or CTRL+C to abort"
 -    read tmp
-     if ! git clone --depth 1 git://source.ffmpeg.org/ffmpeg.git ffmpeg ; then
+     if ! git clone -b $FFBRANCH --depth 1 git://source.ffmpeg.org/ffmpeg.git ffmpeg ; then
          rm -rf ffmpeg
          echo "Failed to get a FFmpeg checkout"

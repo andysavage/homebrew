@@ -1,22 +1,31 @@
-require 'formula'
-
 class Jenkins < Formula
-  homepage 'http://jenkins-ci.org'
-  url 'http://mirrors.jenkins-ci.org/war/1.532/jenkins.war'
-  sha1 'b2832cde7a602a9102a55b40b1ded5b0aae73a95'
+  desc "Extendable open source continuous integration server"
+  homepage "https://jenkins-ci.org"
+  url "http://mirrors.jenkins-ci.org/war/1.647/jenkins.war"
+  sha256 "52778609d34cb532c934509bb2a63c77986ae8e9b7e85186bad0235f58e4200f"
 
-  head 'https://github.com/jenkinsci/jenkins.git'
+  head do
+    url "https://github.com/jenkinsci/jenkins.git"
+    depends_on "maven" => :build
+  end
+
+  bottle :unneeded
+
+  depends_on :java => "1.7+"
 
   def install
     if build.head?
-      system "mvn clean install -pl war -am -DskipTests"
-      libexec.install 'war/target/jenkins.war', '.'
+      ENV.java_cache
+      system "mvn", "clean", "install", "-pl", "war", "-am", "-DskipTests"
     else
-      libexec.install "jenkins.war"
+      system "jar", "xvf", "jenkins.war"
     end
+    libexec.install Dir["**/jenkins.war", "**/jenkins-cli.jar"]
+    bin.write_jar_script libexec/"jenkins.war", "jenkins"
+    bin.write_jar_script libexec/"jenkins-cli.jar", "jenkins-cli"
   end
 
-  plist_options :manual => "java -jar #{HOMEBREW_PREFIX}/opt/jenkins/libexec/jenkins.war"
+  plist_options :manual => "jenkins"
 
   def plist; <<-EOS.undent
     <?xml version="1.0" encoding="UTF-8"?>
@@ -28,14 +37,36 @@ class Jenkins < Formula
         <key>ProgramArguments</key>
         <array>
           <string>/usr/bin/java</string>
+          <string>-Dmail.smtp.starttls.enable=true</string>
           <string>-jar</string>
-          <string>#{opt_prefix}/libexec/jenkins.war</string>
+          <string>#{opt_libexec}/jenkins.war</string>
           <string>--httpListenAddress=127.0.0.1</string>
+          <string>--httpPort=8080</string>
         </array>
         <key>RunAtLoad</key>
         <true/>
       </dict>
     </plist>
   EOS
+  end
+
+  def caveats; <<-EOS.undent
+    Note: When using launchctl the port will be 8080.
+  EOS
+  end
+
+  test do
+    ENV["JENKINS_HOME"] = testpath
+    pid = fork do
+      exec "#{bin}/jenkins"
+    end
+    sleep 60
+
+    begin
+      assert_match /"mode":"NORMAL"/, shell_output("curl localhost:8080/api/json")
+    ensure
+      Process.kill("SIGINT", pid)
+      Process.wait(pid)
+    end
   end
 end

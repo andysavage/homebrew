@@ -1,70 +1,46 @@
-require 'formula'
-
 class Libvpx < Formula
-  homepage 'http://www.webmproject.org/code/'
-  url 'http://webm.googlecode.com/files/libvpx-v1.2.0.tar.bz2'
-  sha1 '33fb2df4ee5b06637dc492dafe49425ead117a24'
+  desc "VP8 video codec"
+  homepage "http://www.webmproject.org/code/"
+  url "https://github.com/webmproject/libvpx/archive/v1.5.0.tar.gz"
+  sha256 "f199b03b67042e8d94a3ae8bc841fb82b6a8430bdf3965aeeaafe8245bcfa699"
+  head "https://chromium.googlesource.com/webm/libvpx", :using => :git
 
-  depends_on 'yasm' => :build
+  bottle do
+    sha256 "662f6f2cb3fab1a9fa74ecd100a9266d86d10a60e179a11b0c80594f4bd7e347" => :el_capitan
+    sha256 "0209b85c32d4c08e23db9afa56bd4c9c0535ebbd1af1f36488b6e34ec1d6e8a1" => :yosemite
+    sha256 "423d1ecee05d00a68d04e390d368c0a03f1597a28d02793cdad3c1219abf4a03" => :mavericks
+  end
 
-  option 'gcov', 'Enable code coverage'
-  option 'mem-tracker', 'Enable tracking memory usage'
-  option 'visualizer', 'Enable post processing visualizer'
+  option "with-gcov", "Enable code coverage"
+  option "with-visualizer", "Enable post processing visualizer"
+  option "with-examples", "Build examples (vpxdec/vpxenc)"
 
-  # Add Mavericks as a comple target, upstream in:
-  # http://git.chromium.org/gitweb/?p=webm/libvpx.git;a=commitdiff;h=fe4a52077f076fff4f3024373af21600afbc6df7
-  def patches; DATA; end
+  deprecated_option "gcov" => "with-gcov"
+  deprecated_option "visualizer" => "with-visualizer"
+
+  depends_on "yasm" => :build
 
   def install
-    args = ["--prefix=#{prefix}",
-            "--enable-pic",
-            "--disable-examples",
-            "--disable-runtime-cpu-detect"]
-    args << "--enable-gcov" if build.include? "gcov" and not ENV.compiler == :clang
-    args << "--enable-mem-tracker" if build.include? "mem-tracker"
-    args << "--enable-postproc-visualizer" if build.include? "visualizer"
+    args = %W[
+      --prefix=#{prefix}
+      --disable-dependency-tracking
+      --enable-pic
+      --disable-unit-tests
+    ]
 
-    # see http://code.google.com/p/webm/issues/detail?id=401
-    # Configure misdetects 32-bit 10.6.
-    # Determine if the computer runs Darwin 9, 10, or 11 using uname -r.
-    osver = %x[uname -r | cut -d. -f1].chomp
-    if MacOS.prefer_64_bit? then
-      args << "--target=x86_64-darwin#{osver}-gcc"
-    else
-      args << "--target=x86-darwin#{osver}-gcc"
+    args << (build.with?("examples") ? "--enable-examples" : "--disable-examples")
+    args << "--enable-gcov" if !ENV.compiler == :clang && build.with?("gcov")
+    args << "--enable-postproc" << "--enable-postproc-visualizer" if build.with? "visualizer"
+
+    # configure misdetects 32-bit 10.6
+    # https://code.google.com/p/webm/issues/detail?id=401
+    if MacOS.version == "10.6" && Hardware.is_32_bit?
+      args << "--target=x86-darwin10-gcc"
     end
 
-    mkdir 'macbuild' do
+    mkdir "macbuild" do
       system "../configure", *args
-      system "make install"
+      system "make", "install"
     end
   end
 end
-
-__END__
---- a/configure	2012-05-09 01:14:00.000000000 +0200
-+++ b/configure	2013-07-19 10:10:02.000000000 +0200
-@@ -111,6 +111,7 @@
- all_platforms="${all_platforms} x86-darwin10-gcc"
- all_platforms="${all_platforms} x86-darwin11-gcc"
- all_platforms="${all_platforms} x86-darwin12-gcc"
-+all_platforms="${all_platforms} x86-darwin13-gcc"
- all_platforms="${all_platforms} x86-linux-gcc"
- all_platforms="${all_platforms} x86-linux-icc"
- all_platforms="${all_platforms} x86-os2-gcc"
-@@ -123,6 +124,7 @@
- all_platforms="${all_platforms} x86_64-darwin10-gcc"
- all_platforms="${all_platforms} x86_64-darwin11-gcc"
- all_platforms="${all_platforms} x86_64-darwin12-gcc"
-+all_platforms="${all_platforms} x86_64-darwin13-gcc"
- all_platforms="${all_platforms} x86_64-linux-gcc"
- all_platforms="${all_platforms} x86_64-linux-icc"
- all_platforms="${all_platforms} x86_64-solaris-gcc"
-@@ -134,6 +136,7 @@
- all_platforms="${all_platforms} universal-darwin10-gcc"
- all_platforms="${all_platforms} universal-darwin11-gcc"
- all_platforms="${all_platforms} universal-darwin12-gcc"
-+all_platforms="${all_platforms} universal-darwin13-gcc"
- all_platforms="${all_platforms} generic-gnu"
-
- # all_targets is a list of all targets that can be configured

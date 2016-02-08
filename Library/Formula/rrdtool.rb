@@ -1,44 +1,51 @@
-require 'formula'
-
 class Rrdtool < Formula
-  homepage 'http://oss.oetiker.ch/rrdtool/index.en.html'
-  url 'http://oss.oetiker.ch/rrdtool/pub/rrdtool-1.4.8.tar.gz'
-  sha1 '56d68857f39e70bfa32360947614d8220702ed02'
+  desc "Round Robin Database"
+  homepage "https://oss.oetiker.ch/rrdtool/index.en.html"
+  url "https://github.com/oetiker/rrdtool-1.x/releases/download/v1.5.5/rrdtool-1.5.5.tar.gz"
+  sha256 "aeb5e58799b6c02e1046e409ceed1b9ed8b3238241d952e0267c7e9be1525a54"
 
-  depends_on 'pkg-config' => :build
-  depends_on 'glib'
-  depends_on 'pango'
-  depends_on 'lua' => :optional
+  bottle do
+    sha256 "40ef7a5538670895456321c7f34e359a88556532be110fe1f5c9b75912678e98" => :el_capitan
+    sha256 "05faf9477d73dcc9880622199f170255db8f7b050502e5e0f6b2685b5c76125f" => :yosemite
+    sha256 "4ad881432a19f31f917a14d793f8838e0fbba140efeca9eb6efe7fbbf60ebdfa" => :mavericks
+  end
+
+  head do
+    url "https://github.com/oetiker/rrdtool-1.x.git"
+    depends_on "automake" => :build
+    depends_on "autoconf" => :build
+    depends_on "libtool" => :build
+  end
+
+  depends_on "pkg-config" => :build
+  depends_on "glib"
+  depends_on "pango"
+  depends_on "lua" => :optional
 
   env :userpaths # For perl, ruby
 
   # Ha-ha, but sleeping is annoying when running configure a lot
-  def patches; DATA; end
+  patch :DATA
 
   def install
     ENV.libxml2
-
-    which_perl = which 'perl'
-    which_ruby = which 'ruby'
-
-    opoo "Using system Ruby. RRD module will be installed to /Library/Ruby/..." if which_ruby.realpath == RUBY_PATH
-    opoo "Using system Perl. RRD module will be installed to /Library/Perl/..." if which_perl.to_s == "/usr/bin/perl"
 
     args = %W[
       --disable-dependency-tracking
       --prefix=#{prefix}
       --disable-tcl
       --with-tcllib=/usr/lib
+      --disable-perl-site-install
+      --disable-ruby-site-install
     ]
-    args << "--enable-perl-site-install" if which_perl.to_s == "/usr/bin/perl"
-    args << "--enable-ruby-site-install" if which_ruby.realpath == RUBY_PATH
 
+    system "./bootstrap" if build.head?
     system "./configure", *args
 
     # Needed to build proper Ruby bundle
     ENV["ARCHFLAGS"] = "-arch #{MacOS.preferred_arch}"
 
-    system "make install"
+    system "make", "CC=#{ENV.cc}", "CXX=#{ENV.cxx}", "install"
     prefix.install "bindings/ruby/test.rb"
   end
 

@@ -1,49 +1,52 @@
-require 'formula'
-
 class GambitScheme < Formula
-  homepage 'http://dynamo.iro.umontreal.ca/~gambit/wiki/index.php/Main_Page'
-  url 'http://www.iro.umontreal.ca/~gambit/download/gambit/v4.6/source/gambc-v4_6_6.tgz'
-  sha256 '4e8b18bb350124138d1f9bf143dda0ab5e55f3c3d489a6dc233a15a003f161d2'
+  desc "Complete, portable implementation of Scheme"
+  homepage "http://dynamo.iro.umontreal.ca/~gambit/wiki/index.php/Main_Page"
+  url "https://www.iro.umontreal.ca/~gambit/download/gambit/v4.8/source/gambit-v4_8_4.tgz"
+  sha256 "b3153649440bde0f613c09b5038e2cc887784277e078cdea3e6703e4a582a0bf"
 
-  option 'with-check', 'Execute "make check" before installing'
-  option 'enable-shared', 'Build Gambit Scheme runtime as shared library'
-
-  # Gambit Scheme needs to know the real compilers used during compilation, as
-  # it writes these into its "gambit-cc" script. The superenv wrappers won't
-  # work for this.
-  # See: https://github.com/mxcl/homebrew/issues/17099
-  env :std
-
-  fails_with :llvm do
-    build 2335
-    cause "ld crashes during the build process or segfault at runtime"
+  bottle do
+    sha256 "9a71e8cff4ec71eedeebbe5fd7aaa44def0c59674f31aee5aa0cfee8542f3315" => :el_capitan
+    sha256 "6c1c2cd0f268d2888c3827b7296c560bdaafb095a25bb360e288ebf9eb22975d" => :yosemite
+    sha256 "d2bf0e670cf92cfb968b77aaba4c8d543f9d81fcf15f70a1aa838ef7c4cd4abc" => :mavericks
   end
 
+  conflicts_with "ghostscript", :because => "both install `gsc` binaries"
+  conflicts_with "scheme48", :because => "both install `scheme-r5rs` binaries"
+
+  option "with-test", 'Execute "make check" before installing'
+  option "with-shared", "Build Gambit Scheme runtime as shared library"
+
+  deprecated_option "with-check" => "with-test"
+  deprecated_option "enable-shared" => "with-shared"
+
+  fails_with :llvm
+  fails_with :clang
+  # According to the docs, gambit-scheme requires absurd amounts of RAM
+  # to build using GCC 4.2 or 4.3; see
+  # https://github.com/mistydemeo/tigerbrew/issues/389
+  fails_with :gcc
+  fails_with :gcc => "4.3"
+
   def install
-    args = ["--disable-debug",
-            "--prefix=#{prefix}",
-            "--infodir=#{info}",
-            # Recommended to improve the execution speed and compactness
-            # of the generated executables. Increases compilation times.
-            "--enable-single-host"]
-    args << "--enable-shared" if build.include? 'enable-shared'
+    args = %W[
+      --disable-debug
+      --prefix=#{prefix}
+      --libdir=#{lib}/gambit-c
+      --infodir=#{info}
+      --docdir=#{doc}
+      --enable-single-host
+    ]
 
-    unless ENV.compiler == :gcc
-      opoo <<-EOS.undent
-        Gambit will build with GCC if an acceptable version is found on your
-        system, or Clang otherwise.  If it finds only Clang, the build will
-        take a very, very long time.  Programs built with Gambit after the
-        install may also tke a long time to compile.
-
-        You can remedy this by installing an apple-gcc* or gcc* package.
-      EOS
-    end
+    args << "--enable-shared" if build.with? "shared"
 
     system "./configure", *args
-    system "make check" if build.include? 'with-check'
+    system "make", "check" if build.with? "test"
 
-    ENV.j1
     system "make"
-    system "make install"
+    system "make", "install", "emacsdir=#{share}/emacs/site-lisp/#{name}"
+  end
+
+  test do
+    system "#{bin}/gsi", "-e", '(print "hello world")'
   end
 end

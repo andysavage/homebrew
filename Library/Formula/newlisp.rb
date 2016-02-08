@@ -1,24 +1,31 @@
-require 'formula'
-
 class Newlisp < Formula
-  homepage 'http://www.newlisp.org/'
-  url 'http://www.newlisp.org/downloads/newlisp-10.5.3.tgz'
-  sha1 'dc02542ebb5b2ee2685e51f988a742c4294d14c3'
+  desc "Lisp-like, general-purpose scripting language"
+  homepage "http://www.newlisp.org/"
+  url "http://www.newlisp.org/downloads/newlisp-10.7.0.tgz"
+  sha256 "c4963bf32d67eef7e4957f7118632a0c40350fd0e28064bce095865b383137bb"
 
-  depends_on 'readline'
-
-  def patches
-    DATA
+  bottle do
+    sha256 "8bc10b849d0a5452a2cf6de53cd7eb6d3df97ca4369e8a3eb28eff82953ca2bb" => :el_capitan
+    sha256 "29cf459d873290b0876cb798cb06dfe1df51db10da9f6300e04f1e9d7d7aecb8" => :yosemite
+    sha256 "dbacba90228024041cbe50efc63959cdaa94c3ca0d30267bcedcd1769dc4c597" => :mavericks
   end
+
+  depends_on "readline" => :recommended
 
   def install
     # Required to use our configuration
     ENV.append_to_cflags "-DNEWCONFIG -c"
 
+    # fix the prefix in a source file
+    inreplace "guiserver/newlisp-edit.lsp" do |s|
+      s.gsub! "#!/usr/local/bin/newlisp", "#!/usr/bin/env newlisp"
+      s.gsub! "/usr/local/bin/newlisp", "#{opt_bin}/newlisp"
+    end
+
     system "./configure-alt", "--prefix=#{prefix}", "--mandir=#{man}"
     system "make"
-    system "make check"
-    system "make install"
+    system "make", "check"
+    system "make", "install"
   end
 
   def caveats; <<-EOS.undent
@@ -26,33 +33,14 @@ class Newlisp < Formula
     will need to be be pointed to your newlisp executable.
     EOS
   end
+
+  test do
+    path = testpath/"test.lsp"
+    path.write <<-EOS
+      (println "hello")
+      (exit 0)
+    EOS
+
+    assert_equal "hello\n", shell_output("#{bin}/newlisp #{path}")
+  end
 end
-
-__END__
-
---- a/guiserver/newlisp-edit.lsp
-+++ b/Users/gordy/tmp/newlisp-edit
-@@ -1,4 +1,4 @@
--#!/usr/bin/newlisp
-+#!/usr/bin/env newlisp
- 
- ; newlisp-edit.lsp - multiple tab LISP editor and support for running code from the editor
- ; needs 9.9.2 version minimum to run
-@@ -155,7 +155,7 @@
- 			(write-file file (base64-dec text)))
- 		(if (= ostype "Win32")
- 			(catch (exec (string {newlisp.exe "} currentScriptFile {" } file " > " (string file "out"))) 'result)
--			(catch (exec (string "/usr/bin/newlisp " currentScriptFile " " file)) 'result)
-+			(catch (exec (string "/usr/local/bin/newlisp " currentScriptFile " " file)) 'result)
- 		)
- 		(if (list? result)
- 			(begin
-@@ -223,7 +223,7 @@
- 		(gs:run-shell 'OutputArea 
- 			(string newlispDir "/newlisp.exe") (string currentExtension " -C -w \"" $HOME "\""))
- 		(gs:run-shell 'OutputArea 
--			(string "/usr/bin/newlisp") (string currentExtension " -C -w " $HOME))
-+			(string "/usr/local/bin/newlisp") (string currentExtension " -C -w " $HOME))
- 	)
- )
- 

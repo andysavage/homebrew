@@ -1,26 +1,37 @@
-require 'formula'
-
 class Redis < Formula
-  homepage 'http://redis.io/'
-  url 'http://download.redis.io/releases/redis-2.6.16.tar.gz'
-  sha1 'f94c0f623aaa8c310f9be2a88e81716de01ce0ce'
+  desc "Persistent key-value database, with built-in net interface"
+  homepage "http://redis.io/"
+  url "http://download.redis.io/releases/redis-3.0.7.tar.gz"
+  sha256 "b2a791c4ea3bb7268795c45c6321ea5abcc24457178373e6a6e3be6372737f23"
 
-  head 'https://github.com/antirez/redis.git', :branch => 'unstable'
+  bottle do
+    cellar :any_skip_relocation
+    revision 1
+    sha256 "56aa3ed148606d6f4d0fa7a4f2efec2263f4d166949d5732836a133be589493b" => :el_capitan
+    sha256 "931dbc56104eced22a13c9f6ac314fd808132295984bcf9973c9f6dafda0f245" => :yosemite
+    sha256 "4be758b78e35b4a30b3d6e97255774f928de19332520447429afc64b7ec8cf41" => :mavericks
+  end
+
+  option "with-jemalloc", "Select jemalloc as memory allocator when building Redis"
+
+  head "https://github.com/antirez/redis.git", :branch => "unstable"
 
   fails_with :llvm do
     build 2334
-    cause 'Fails with "reference out of range from _linenoise"'
+    cause "Fails with \"reference out of range from _linenoise\""
   end
 
   def install
     # Architecture isn't detected correctly on 32bit Snow Leopard without help
     ENV["OBJARCH"] = "-arch #{MacOS.preferred_arch}"
 
-    # Head and stable have different code layouts
-    src = (buildpath/'src/Makefile').exist? ? buildpath/'src' : buildpath
-    system "make", "-C", src, "CC=#{ENV.cc}"
+    args = %W[
+      PREFIX=#{prefix}
+      CC=#{ENV.cc}
+    ]
+    args << "MALLOC=jemalloc" if build.with? "jemalloc"
+    system "make", "install", *args
 
-    %w[benchmark cli server check-dump check-aof sentinel].each { |p| bin.install src/"redis-#{p}" }
     %w[run db/redis log].each { |p| (var+p).mkpath }
 
     # Fix up default conf file to match our paths
@@ -30,14 +41,8 @@ class Redis < Formula
       s.gsub! "\# bind 127.0.0.1", "bind 127.0.0.1"
     end
 
-    # Fix redis upgrade from 2.4 to 2.6.
-    if File.exists?(etc/'redis.conf') && !File.readlines(etc/'redis.conf').grep(/^vm-enabled/).empty?
-      mv etc/'redis.conf', etc/'redis.conf.old'
-      ohai "Your redis.conf will not work with 2.6; moved it to redis.conf.old"
-    end
-
-    etc.install 'redis.conf' unless (etc/'redis.conf').exist?
-    etc.install 'sentinel.conf' => 'redis-sentinel.conf' unless (etc/'redis-sentinel.conf').exist?
+    etc.install "redis.conf"
+    etc.install "sentinel.conf" => "redis-sentinel.conf"
   end
 
   plist_options :manual => "redis-server #{HOMEBREW_PREFIX}/etc/redis.conf"
@@ -56,7 +61,7 @@ class Redis < Formula
         <string>#{plist_name}</string>
         <key>ProgramArguments</key>
         <array>
-          <string>#{opt_prefix}/bin/redis-server</string>
+          <string>#{opt_bin}/redis-server</string>
           <string>#{etc}/redis.conf</string>
         </array>
         <key>RunAtLoad</key>
@@ -70,5 +75,9 @@ class Redis < Formula
       </dict>
     </plist>
     EOS
+  end
+
+  test do
+    system "#{bin}/redis-server", "--test-memory", "2"
   end
 end

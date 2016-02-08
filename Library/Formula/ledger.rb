@@ -1,61 +1,71 @@
-require 'formula'
-
 class Ledger < Formula
-  homepage 'http://ledger-cli.org'
+  desc "Command-line, double-entry accounting tool"
+  homepage "http://ledger-cli.org"
+  url "https://github.com/ledger/ledger/archive/v3.1.1.tar.gz"
+  sha256 "90f06561ab692b192d46d67bc106158da9c6c6813cc3848b503243a9dfd8548a"
+  head "https://github.com/ledger/ledger.git"
+  revision 1
 
-  stable do
-    url 'https://github.com/downloads/ledger/ledger/ledger-2.6.3.tar.gz'
-    sha1 '5b8e7d8199acb116f13720a5a469fff1f14b4041'
-
-    depends_on 'gettext'
-    depends_on 'pcre'
-    depends_on 'expat'
-    depends_on 'libofx' => :optional
+  bottle do
+    sha256 "a009cd705baad8407ccc6b56a3acecda01160f0eb27c7554ca30e6faec236c01" => :el_capitan
+    sha256 "073b143a8bb57cd4af2910f68869930232913b521e7f7d59446e350e306b2e5f" => :yosemite
+    sha256 "b56d36146f09a1e9b7c23511ca7075d2d8b0760b5171aedad17a3e4cca51cef7" => :mavericks
   end
 
-  head do
-    url 'https://github.com/ledger/ledger.git', :branch => 'master'
-    depends_on 'cmake' => :build
-    depends_on 'ninja' => :build
-    depends_on 'mpfr'
-  end
+  deprecated_option "debug" => "with-debug"
 
-  option 'debug', 'Build with debugging symbols enabled'
+  option "with-debug", "Build with debugging symbols enabled"
+  option "with-docs", "Build HTML documentation"
+  option "without-python", "Build without python support"
 
-  depends_on 'boost'
-  depends_on 'gmp'
-  depends_on :python => :optional
+  depends_on "cmake" => :build
+  depends_on "gmp"
+  depends_on "mpfr"
+  depends_on :python => :recommended if MacOS.version <= :snow_leopard
+
+  boost_opts = []
+  boost_opts << "c++11" if MacOS.version < "10.9"
+  depends_on "boost" => boost_opts
+  depends_on "boost-python" => boost_opts if build.with? "python"
+
+  needs :cxx11
 
   def install
-    opoo "Homebrew: Sorry, python bindings for --HEAD seem not to install. Help us fixing this!" if build.with? 'python'
+    ENV.cxx11
 
-    # find Homebrew's libpcre
-    ENV.append 'LDFLAGS', "-L#{HOMEBREW_PREFIX}/lib"
+    flavor = (build.with? "debug") ? "debug" : "opt"
 
-    if build.head?
-      args = [((build.include? 'debug') ? 'debug' : 'opt'), "make", "-N", "-j#{ENV.make_jobs}", "--output=build"]
-      if build.with? 'python'
-        args << '--python'
-        # acprep picks up system python because CMake is used
-        inreplace 'acprep', "self.configure_args  = []",
-                            "self.configure_args  = ['-DPYTHON_INCLUDE_DIR=#{python.incdir}', '-DPYTHON_LIBRARY=#{python.libdir}/lib#{python.xy}.dylib']"
-      end
-      # Support homebrew not at /usr/local. Also support Xcode-only setups:
-      inreplace 'acprep', 'search_prefixes = [', "search_prefixes = ['#{HOMEBREW_PREFIX}','#{MacOS.sdk_path}/usr',"
-      system "./acprep", "--prefix=#{prefix}", *args
-      system "cmake", "-P", "build/cmake_install.cmake", "-DUSE_PYTHON=ON"
-    else
-      args = []
-      if build.with? 'libofx'
-        args << "--enable-ofx"
-        # the libofx.h appears to have moved to a subdirectory
-        ENV.append 'CXXFLAGS', "-I#{Formula.factory('libofx').opt_prefix}/include/libofx"
-      end
-      system "./configure", "--disable-debug", "--disable-dependency-tracking",
-                            "--prefix=#{prefix}", *args
-      system 'make'
-      ENV.deparallelize
-      system 'make install'
+    args = %W[
+      --jobs=#{ENV.make_jobs}
+      --output=build
+      --prefix=#{prefix}
+      --boost=#{Formula["boost"].opt_prefix}
+    ]
+    args << "--python" if build.with? "python"
+    args += %w[-- -DBUILD_DOCS=1]
+    args << "-DBUILD_WEB_DOCS=1" if build.with? "docs"
+    system "./acprep", flavor, "make", *args
+    system "./acprep", flavor, "make", "doc", *args
+    system "./acprep", flavor, "make", "install", *args
+
+    (pkgshare+"examples").install Dir["test/input/*.dat"]
+    (pkgshare).install "contrib"
+    (pkgshare).install "python/demo.py" if build.with? "python"
+    (share/"emacs/site-lisp/ledger").install Dir["lisp/*.el", "lisp/*.elc"]
+  end
+
+  test do
+    balance = testpath/"output"
+    system bin/"ledger",
+      "--args-only",
+      "--file", "#{pkgshare}/examples/sample.dat",
+      "--output", balance,
+      "balance", "--collapse", "equity"
+    assert_equal "          $-2,500.00  Equity", balance.read.chomp
+    assert_equal 0, $?.exitstatus
+
+    if build.with? "python"
+      system "python", "#{pkgshare}/demo.py"
     end
   end
 end

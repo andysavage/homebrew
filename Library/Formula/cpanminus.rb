@@ -1,13 +1,17 @@
-require 'formula'
-
 class Cpanminus < Formula
-  homepage 'https://github.com/miyagawa/cpanminus'
-  url 'https://github.com/miyagawa/cpanminus/archive/1.7001.tar.gz'
-  sha1 '805dbdf4b1c1d8e9ee9adeeca8ca86db82165db3'
+  desc "Get, unpack, build, and install modules from CPAN"
+  homepage "https://github.com/miyagawa/cpanminus"
+  url "https://github.com/miyagawa/cpanminus/archive/1.7040.tar.gz"
+  sha256 "48a747c040689445f7db0edd169da0abd709a37cfece3ceecff0816c09beab0e"
+  head "https://github.com/miyagawa/cpanminus.git"
 
-  head 'https://github.com/miyagawa/cpanminus.git'
+  bottle :unneeded
 
   def install
-    bin.install 'cpanm'
+    bin.install "cpanm"
+  end
+
+  test do
+    system "#{bin}/cpanm", "Test::More"
   end
 end

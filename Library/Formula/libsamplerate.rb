@@ -1,23 +1,45 @@
-require 'formula'
-
 class Libsamplerate < Formula
-  homepage 'http://www.mega-nerd.com/SRC'
-  url 'http://www.mega-nerd.com/SRC/libsamplerate-0.1.8.tar.gz'
-  sha1 'e5fe82c4786be2fa33ca6bd4897db4868347fe70'
+  desc "Library for sample rate conversion of audio data"
+  homepage "http://www.mega-nerd.com/SRC"
+  url "http://www.mega-nerd.com/SRC/libsamplerate-0.1.8.tar.gz"
+  sha256 "93b54bdf46d5e6d2354b7034395fe329c222a966790de34520702bb9642f1c06"
 
-  depends_on 'pkg-config' => :build
-  depends_on 'libsndfile' => :optional
-  depends_on 'fftw' => :optional
+  bottle do
+    cellar :any
+    revision 2
+    sha256 "7cdb2a6ae9047052461037e2a48742ca8a0caf72c5bce3eca856bbf24eeffd11" => :el_capitan
+    sha256 "e50d3c4c47d61b844db05e1a37d299dbcaeec4236ebdff53ebd8e4dbedb32c29" => :yosemite
+    sha256 "02bf6dca011543e5f49c42109462a5a94d02e2803f3258c0e38033f2205dcf1a" => :mavericks
+  end
+
+  depends_on "pkg-config" => :build
+  depends_on "libsndfile" => :optional
+  depends_on "fftw" => :optional
 
   # configure adds `/Developer/Headers/FlatCarbon` to the include, but this is
   # very deprecated. Correct the use of Carbon.h to the non-flat location.
-  # See: https://github.com/mxcl/homebrew/pull/10875
-  def patches; DATA; end
+  # See: https://github.com/Homebrew/homebrew/pull/10875
+  patch :DATA
 
   def install
     system "./configure", "--disable-dependency-tracking",
                           "--prefix=#{prefix}"
-    system "make install"
+    system "make", "install"
+
+    # https://github.com/Homebrew/homebrew/issues/47133
+    # Unless formula is built with libsndfile, the example program is broken.
+    rm_f "#{bin}/sndfile-resample" if build.without? "libsndfile"
+  end
+
+  def caveats
+    s = ""
+    if build.without? "libsndfile"
+      s += <<-EOS.undent
+      Unless this formula is built with libsndfile, the example program,
+      "sndfile-resample", is broken and hence, removed from installation.
+      EOS
+    end
+    s
   end
 end
 

@@ -1,30 +1,48 @@
-require 'formula'
-
 class Grass < Formula
-  homepage 'http://grass.osgeo.org/'
-  url 'http://grass.osgeo.org/grass64/source/grass-6.4.2.tar.gz'
-  sha1 '74481611573677d90ae0cd446c04a3895e232004'
+  desc "Geographic Resources Analysis Support System"
+  homepage "https://grass.osgeo.org/"
+  revision 1
 
-  head 'https://svn.osgeo.org/grass/grass/trunk'
+  stable do
+    url "https://grass.osgeo.org/grass64/source/grass-6.4.4.tar.gz"
+    sha256 "5ddba27b4e5495f602ee5249a07e287f342dd8e1422ea5d490c04311c731d274"
+
+    # Patches that files are not installed outside of the prefix.
+    patch :DATA
+  end
+
+  bottle do
+    sha256 "9881162ad659b3e04e687933477fd10cf8726c53aa19fbfba9dfb3f685edaa25" => :el_capitan
+    sha256 "aa4db69f55a2fd3b5a09cebcc4706009743ba5d7e46ee46ad958f274799e33f6" => :yosemite
+    sha256 "42304f890bd466dfbbe4dcccde86ecd85c209ea38e908320f94d2a745233ef59" => :mavericks
+  end
+
+  head do
+    url "https://svn.osgeo.org/grass/grass/trunk"
+
+    patch do
+      url "https://gist.githubusercontent.com/jctull/0fe3db92a3e7c19fa6e0/raw/42e819f0a9b144de782c94f730dbc4da136e9227/grassPatchHead.diff"
+      sha256 "a30caef931b70f37700823d028bce38af978ccb472649ec17920d91197421bc5"
+    end
+  end
 
   option "without-gui", "Build without WxPython interface. Command line tools still available."
 
+  depends_on :macos => :lion
+  depends_on "gcc" if MacOS.version >= :mountain_lion
   depends_on "pkg-config" => :build
-  depends_on :python
   depends_on "gettext"
   depends_on "readline"
   depends_on "gdal"
   depends_on "libtiff"
   depends_on "unixodbc"
   depends_on "fftw"
-  depends_on 'wxmac' => :recommended # prefer over OS X's version because of 64bit
+  depends_on "cairo"
+  depends_on "freetype"
+  depends_on :x11 # needs to find at least X11/include/GL/gl.h
+  depends_on "wxpython" => :recommended
   depends_on :postgresql => :optional
   depends_on :mysql => :optional
-  depends_on "cairo" if MacOS.version <= :leopard
-  depends_on :x11  # needs to find at least X11/include/GL/gl.h
-
-  # Patches that files are not installed outside of the prefix.
-  def patches; DATA; end
 
   fails_with :clang do
     cause "Multiple build failures while compiling GRASS tools."
@@ -33,12 +51,12 @@ class Grass < Formula
   def headless?
     # The GRASS GUI is based on WxPython. Unfortunately, Lion does not include
     # this module so we have to drop it.
-    build.include? 'without-gui' or MacOS.version == :lion
+    build.without?("gui") || MacOS.version == :lion
   end
 
   def install
-    readline = Formula.factory('readline')
-    gettext = Formula.factory('gettext')
+    readline = Formula["readline"].opt_prefix
+    gettext = Formula["gettext"].opt_prefix
 
     args = [
       "--disable-debug", "--disable-dependency-tracking",
@@ -51,13 +69,13 @@ class Grass < Formula
       "--with-lapack",
       "--with-sqlite",
       "--with-odbc",
-      "--with-geos=#{Formula.factory('geos').opt_prefix}/bin/geos-config",
+      "--with-geos=#{Formula["geos"].opt_bin}/geos-config",
       "--with-png",
-      "--with-readline-includes=#{readline.opt_prefix}/include",
-      "--with-readline-libs=#{readline.opt_prefix}/lib",
+      "--with-readline-includes=#{readline}/include",
+      "--with-readline-libs=#{readline}/lib",
       "--with-readline",
-      "--with-nls-includes=#{gettext.opt_prefix}/include",
-      "--with-nls-libs=#{gettext.opt_prefix}/lib",
+      "--with-nls-includes=#{gettext}/include",
+      "--with-nls-libs=#{gettext}/lib",
       "--with-nls",
       "--with-freetype",
       "--without-tcltk" # Disabled due to compatibility issues with OS X Tcl/Tk
@@ -69,41 +87,41 @@ class Grass < Formula
       args << "--with-opengl-includes=#{MacOS.sdk_path}/System/Library/Frameworks/OpenGL.framework/Headers"
     end
 
-    if headless? or build.without? 'wxmac'
+    if headless? || build.without?("wxmac")
       args << "--without-wxwidgets"
     else
-      args << "--with-wxwidgets=#{Formula.factory('wxmac').opt_prefix}/bin/wx-config"
+      args << "--with-wxwidgets=#{Formula["wxmac"].opt_bin}/wx-config"
+    end
+
+    if build.with? "wxpython"
+      python_site_packages = HOMEBREW_PREFIX/"lib/python2.7/site-packages"
+      default_wx_path = File.read(python_site_packages/"wx.pth").strip
+      ENV.prepend_path "PYTHONPATH", python_site_packages/default_wx_path
     end
 
     args << "--enable-64bit" if MacOS.prefer_64_bit?
     args << "--with-macos-archs=#{MacOS.preferred_arch}"
 
-    # Deal with Cairo support
-    if MacOS.version <= :leopard
-      cairo = Formula.factory('cairo')
-      args << "--with-cairo-includes=#{cairo.include}/cairo"
-      args << "--with-cairo-libs=#{cairo.lib}"
-    else
-      args << "--with-cairo-includes=#{MacOS::X11.include} #{MacOS::X11.include}/cairo"
-    end
-
+    cairo = Formula["cairo"]
+    args << "--with-cairo-includes=#{cairo.include}/cairo"
+    args << "--with-cairo-libs=#{cairo.lib}"
     args << "--with-cairo"
 
     # Database support
-    if build.with? "postgres"
-      args << "--with-postgres"
-    end
+    args << "--with-postgres" if build.with? "postgresql"
 
     if build.with? "mysql"
-      mysql = Formula.factory('mysql')
-      args << "--with-mysql-includes=#{mysql.include + 'mysql'}"
-      args << "--with-mysql-libs=#{mysql.lib + 'mysql'}"
+      mysql = Formula["mysql"]
+      args << "--with-mysql-includes=#{mysql.include}/mysql"
+      args << "--with-mysql-libs=#{mysql.lib}"
       args << "--with-mysql"
     end
 
     system "./configure", "--prefix=#{prefix}", *args
-    system "make" # make and make install must be separate steps.
-    system "make install"
+    # make and make install must be separate steps.
+    system "make", "GDAL_DYNAMIC="
+    # GDAL_DYNAMIC set to blank for r.external compatability
+    system "make", "GDAL_DYNAMIC=", "install"
   end
 
   def caveats
@@ -153,6 +171,6 @@ index f1edea6..be404b0 100644
  endif
 -	@# enable OSX Help Viewer
 -	@if [ "`cat include/Make/Platform.make | grep -i '^ARCH.*darwin'`" ] ; then /bin/ln -sfh "${INST_DIR}/docs/html" /Library/Documentation/Help/GRASS-${GRASS_VERSION_MAJOR}.${GRASS_VERSION_MINOR} ; fi
- 
- 
+
+
  install-strip: FORCE

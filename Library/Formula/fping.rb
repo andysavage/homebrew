@@ -1,21 +1,17 @@
-require 'formula'
-
 class Fping < Formula
-  homepage 'http://fping.org/'
-  url 'http://fping.org/dist/fping-3.5.tar.gz'
-  sha1 'b2552aa5b9450c660e37761c3e5efe8ac28c83d2'
+  desc "Scriptable ping program for checking if multiple hosts are up"
+  homepage "http://fping.org/"
+  url "http://fping.org/dist/fping-3.10.tar.gz"
+  mirror "https://mirrors.kernel.org/debian/pool/main/f/fping/fping_3.10.orig.tar.gz"
+  sha256 "cd47e842f32fe6aa72369d8a0e3545f7c137bb019e66f47379dc70febad357d8"
 
-  head 'https://github.com/schweikert/fping.git'
+  head "https://github.com/schweikert/fping.git"
 
   def install
     system "./configure", "--disable-dependency-tracking",
-                          "--prefix=#{prefix}"
-    system "make install"
-  end
-
-  def caveats; <<-EOS.undent
-    fping can only be run by root by default so either use sudo to run fping or
-        setuid root #{sbin}/fping
-    EOS
+                          "--prefix=#{prefix}",
+                          "--sbindir=#{bin}",
+                          "--enable-ipv6"
+    system "make", "install"
   end
 end

@@ -1,22 +1,23 @@
-require 'formula'
-
 class Cdk < Formula
-  homepage 'http://invisible-island.net/cdk/'
-  url 'ftp://invisible-island.net/cdk/cdk-5.0-20120323.tgz'
-  version '5.0.20120323'
-  sha1 '014a32b1a2928bb0ab1917b7d15b9cdd1e23f33f'
+  desc "Curses development kit provides predefined curses widget for apps"
+  homepage "http://invisible-island.net/cdk/"
+  url "ftp://invisible-island.net/cdk/cdk-5.0-20141106.tgz"
+  version "5.0.20141106"
+  sha256 "d7ce8d9698b4998fa49a63b6e19309d3eb61cc3a019bfc95101d845ef03c4803"
+
+  bottle do
+    cellar :any
+    sha256 "ffd31d6fbe4d2ba6995c0d405a86988e7746683624a6247821bd81d8d9981ada" => :yosemite
+    sha256 "558928d85f0ce838cf2995f7106249988e7a3ffdad8bceb006909cc0e176ec95" => :mavericks
+    sha256 "b8eeb47d460bfaaeb9a398b8f23ef0905afabacf81fcf2c7d2860e15701e23ec" => :mountain_lion
+  end
 
   def install
-    system "./configure", "--prefix=#{prefix}"
+    system "./configure", "--prefix=#{prefix}", "--with-ncurses"
     system "make", "install"
-    system "ranlib", "#{lib}/libcdk.a"
-    # Clean up generated header paths
-    inreplace "#{include}/cdk.h" do |s|
-      for obj in ["scale", "slider"]
-        for dt in ["", "u", "d", "f"]
-          s.sub! "#include <#{dt}#{obj}.h>", "#include <cdk/#{dt}#{obj}.h>"
-        end
-      end
-    end
+  end
+
+  test do
+    assert_match "#{lib}", shell_output("#{bin}/cdk5-config --libdir")
   end
 end

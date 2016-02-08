@@ -1,40 +1,38 @@
-require 'formula'
-
 class Mosquitto < Formula
-  homepage 'http://mosquitto.org/'
-  url 'http://mosquitto.org/files/source/mosquitto-1.2.1.tar.gz'
-  sha1 'c349b2eecd76e8d6eb17d78231955234968e6f69'
+  desc "Message broker implementing MQ telemetry transport protocol"
+  homepage "https://mosquitto.org/"
+  url "https://mosquitto.org/files/source/mosquitto-1.4.7.tar.gz"
+  sha256 "71a1cb37893403e00b7db85c5db4af50b40d055ce61e5d21092c2594f2023b8b"
 
-  depends_on 'pkg-config' => :build
-  depends_on 'cmake' => :build
+  bottle do
+    sha256 "6a1e0d15e09b6dbde0c82f4da3fcd1de537ca0b9e043202428e07ab3d99b3e1e" => :el_capitan
+    sha256 "91bc6b949e3416cf931cf19999486c225b85722f448ed0feaf15bf268ed24073" => :yosemite
+    sha256 "3f5e1edf5f3cd65f970f2778acf4e7eb50ff86a7a3514d6b20daf96821479737" => :mavericks
+  end
 
-  # mosquitto requires OpenSSL >=1.0 for TLS support
-  depends_on 'openssl'
+  depends_on "pkg-config" => :build
+  depends_on "cmake" => :build
+  depends_on "c-ares"
+  depends_on "openssl"
+  depends_on "libwebsockets" => :recommended
 
   def install
-    system "cmake", ".", *std_cmake_args
-    system "make install"
+    args = std_cmake_args
+    args << "-DWITH_WEBSOCKETS=ON" if build.with? "libwebsockets"
 
-    # Create the working directory
-    (var/'mosquitto').mkpath
+    system "cmake", ".", *args
+    system "make", "install"
   end
 
-  test do
-    quiet_system "#{sbin}/mosquitto", "-h"
-    assert_equal 3, $?.exitstatus
+  def post_install
+    (var/"mosquitto").mkpath
   end
 
-  def caveats; <<-EOD.undent
+  def caveats; <<-EOS.undent
     mosquitto has been installed with a default configuration file.
     You can make changes to the configuration by editing:
         #{etc}/mosquitto/mosquitto.conf
-
-    Python client bindings can be installed from the Python Package Index:
-        pip install mosquitto
-
-    Javascript client is available at:
-        http://mosquitto.org/js/
-    EOD
+    EOS
   end
 
   plist_options :manual => "mosquitto -c #{HOMEBREW_PREFIX}/etc/mosquitto/mosquitto.conf"
@@ -48,7 +46,7 @@ class Mosquitto < Formula
       <string>#{plist_name}</string>
       <key>ProgramArguments</key>
       <array>
-        <string>#{opt_prefix}/sbin/mosquitto</string>
+        <string>#{opt_sbin}/mosquitto</string>
         <string>-c</string>
         <string>#{etc}/mosquitto/mosquitto.conf</string>
       </array>
@@ -61,5 +59,10 @@ class Mosquitto < Formula
     </dict>
     </plist>
     EOS
+  end
+
+  test do
+    quiet_system "#{sbin}/mosquitto", "-h"
+    assert_equal 3, $?.exitstatus
   end
 end

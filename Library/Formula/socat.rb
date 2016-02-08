@@ -1,45 +1,33 @@
-require 'formula'
-
 class Socat < Formula
-  homepage 'http://www.dest-unreach.org/socat/'
-  url 'http://www.dest-unreach.org/socat/download/socat-1.7.2.2.tar.bz2'
-  sha1 'ba270b85b0d16a6b300159f9b0d88653a9f5d9da'
+  desc "netcat on steroids"
+  homepage "http://www.dest-unreach.org/socat/"
+  url "http://www.dest-unreach.org/socat/download/socat-1.7.3.1.tar.gz"
+  sha256 "a8cb07b12bcd04c98f4ffc1c68b79547f5dd4e23ddccb132940f6d55565c7f79"
+
+  bottle do
+    cellar :any
+    sha256 "6ecb3cbe4ce22509a88db917005018e634954fb0950d49ddf6f75d1fa6b6a789" => :el_capitan
+    sha256 "8e7444400aab2b0dcf49580fc2d52ce587706827385c58379fbfadddca55da35" => :yosemite
+    sha256 "8dbf0e7e4163d0e88deb6048e151840f1cf7cfec974cd34a3866e2a1030c25df" => :mavericks
+  end
 
   devel do
-    url 'http://www.dest-unreach.org/socat/download/socat-2.0.0-b6.tar.bz2'
-    sha1 '8873c8ab721bc301bfd5026872bace9e01e7bfac'
+    url "http://www.dest-unreach.org/socat/download/socat-2.0.0-b9.tar.gz"
+    version "2.0.0-b9"
+    sha256 "f9496ea44898d7707507a728f1ff16b887c80ada63f6d9abb0b727e96d5c281a"
   end
 
-  depends_on 'readline'
-
-  def patches
-    # Socat devs are aware; see:
-    # https://trac.macports.org/ticket/32044
-    p = { :p0 => "https://trac.macports.org/export/90442/trunk/dports/sysutils/socat/files/patch-xioexit.c.diff" }
-    p[:p1] = DATA if build.devel?
-    p
-  end
+  depends_on "readline"
+  depends_on "openssl"
 
   def install
     ENV.enable_warnings # -w causes build to fail
     system "./configure", "--prefix=#{prefix}", "--mandir=#{man}"
-    system "make install"
+    system "make", "install"
+  end
+
+  test do
+    output = pipe_output("#{bin}/socat - tcp:www.google.com:80", "GET / HTTP/1.0\r\n\r\n")
+    assert_match "HTTP/1.0", output
   end
 end
-
-__END__
-diff --git a/sysincludes.h b/sysincludes.h
-index ee25556..8a57422 100644
---- a/sysincludes.h
-+++ b/sysincludes.h
-@@ -5,6 +5,10 @@
- #ifndef __sysincludes_h_included
- #define __sysincludes_h_included 1
- 
-+#if __APPLE__
-+#define __APPLE_USE_RFC_3542 1
-+#endif
-+
- #if HAVE_LIMITS_H
- #include <limits.h>	/* USHRT_MAX */
- #endif
