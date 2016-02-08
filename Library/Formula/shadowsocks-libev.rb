@@ -6,10 +6,9 @@ class ShadowsocksLibev < Formula
   head "https://github.com/shadowsocks/shadowsocks-libev.git"
 
   bottle do
+    root_url "http://homebrew.savage.hk/bottles"
     cellar :any
-    sha256 "5f1a5d06dedfa3933d06d68e954eb2ed800dc4300b14a8b7292fcbf1f0080e04" => :el_capitan
-    sha256 "1bfb078358f96a492f1047cf57a2a70ed168725aa916d4ffcb30cb82cfc26ff3" => :yosemite
-    sha256 "850d0120fb1db1b0e08450c021bcd88d75e71101d0a73096f870db77637a558d" => :mavericks
+    sha256 "93302c0e8e8a3252a556b4e3f42ba035f2ec9d7820304aabb8a247f49168bd6c" => :el_capitan
   end
 
   depends_on "openssl"
